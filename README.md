@@ -16,6 +16,7 @@ AGCWD is described in the paper ["Efficient Contrast Enhancement Using Adaptive 
 Examples
 --------
 
+A Rust code snippet to enhance an RGB image:
 ```rust
 // An example image containing 2 RGB pixels.
 let mut pixels = vec![0, 1, 2, 3, 4, 5];
@@ -28,3 +29,5 @@ You can apply AGCWD to a PNG image by executing the following command:
 ```console
 $ cargo run --example enhance-png /path/to/image.png --output-path 
 ```
+
+Besides, [here](https://sile.github.io/agcwd/examples/enhance.html) is a live example of enhancing images from your camera in real-time.
