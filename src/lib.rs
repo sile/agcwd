@@ -1,17 +1,42 @@
+//! An implementation of the AGCWD algorithm.
+//!
+//! AGCWD is described in the paper ["Efficient Contrast Enhancement Using Adaptive Gamma Correction With Weighting Distribution"][AGCWD].
+//!
+//! [AGCWD]: https://ieeexplore.ieee.org/abstract/document/6336819/
+//!
+//! # Examples
+//!
+//! ```
+//! // An example image containing 2 RGB pixels.
+//! let mut pixels = vec![0, 1, 2, 3, 4, 5];
+//!
+//! let agcwd = agcwd::Agcwd::new(0.5);
+//! agcwd.enhance_rgb_image(&mut pixels);
+//! ```
+#![warn(missing_docs)]
+
+/// [`Agcwd`] provides methods to enhance image contrast based on the [AGCWD] algorithm.
+///
+/// [AGCWD]: https://ieeexplore.ieee.org/abstract/document/6336819/
 #[derive(Debug)]
 pub struct Agcwd {
     alpha: f32,
 }
 
 impl Agcwd {
+    /// Makes a new [`Agcwd`] instance.
+    ///
+    /// `alpha` is an algorithm parameter to adjust the shape of weighting distribution (WD).
     pub fn new(alpha: f32) -> Self {
         Self { alpha }
     }
 
+    /// Enhances the contrast of an RGB image.
     pub fn enhance_rgb_image(&self, pixels: &mut [u8]) {
         self.enhance_image::<3>(pixels);
     }
 
+    /// Enhances the contrast of an RGBA image.
     pub fn enhance_rgba_image(&self, pixels: &mut [u8]) {
         self.enhance_image::<4>(pixels);
     }
@@ -199,4 +224,23 @@ fn hsv_to_rgb(mut h: f32, s: f32, v: f32) -> (f32, f32, f32) {
     }
 
     (r, g, b)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn enhance_rgb_image_works() {
+        let mut pixels = [1, 2, 3, 4, 5, 6];
+        let agcwd = Agcwd::new(0.5);
+        agcwd.enhance_rgb_image(&mut pixels);
+    }
+
+    #[test]
+    fn enhance_rgba_image_works() {
+        let mut pixels = [1, 2, 3, 4, 5, 6, 7, 8];
+        let agcwd = Agcwd::new(0.5);
+        agcwd.enhance_rgba_image(&mut pixels);
+    }
 }
