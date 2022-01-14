@@ -1,36 +1,25 @@
 #[derive(Debug)]
-pub struct Options {
-    alpha: Option<f32>,
-    th: f32, // frame-difference-threshold(?)
-}
-
-impl Default for Options {
-    fn default() -> Self {
-        Self {
-            alpha: None,
-            th: 0.05,
-        }
-    }
-}
-
-#[derive(Debug)]
 pub struct Agcwd {
-    options: Options,
-    pdf: Pdf,
+    alpha: f32,
 }
 
 impl Agcwd {
-    pub fn new() -> Self {
-        Self {
-            options: Options::default(),
-            pdf: Pdf([0.0; 256]),
-        }
+    pub fn new(alpha: f32) -> Self {
+        Self { alpha }
     }
 
-    pub fn enhance(&mut self, pixels: &mut [u8]) {
-        let mut image = Image::new(pixels);
+    pub fn enhance_rgb_image(&self, pixels: &mut [u8]) {
+        self.enhance_image::<3>(pixels);
+    }
+
+    pub fn enhance_rgba_image(&self, pixels: &mut [u8]) {
+        self.enhance_image::<4>(pixels);
+    }
+
+    fn enhance_image<const N: usize>(&self, pixels: &mut [u8]) {
+        let mut image = Image::<N>::new(pixels);
         let pdf = Pdf::new(&image);
-        let pdf_w = pdf.to_weighting_distribution(self.options.alpha.unwrap_or(0.5));
+        let pdf_w = pdf.to_weighting_distribution(self.alpha);
         let cdf_w = Cdf::new(&pdf_w);
         let curve = IntensityTransformationCurve::new(&cdf_w);
         image.update_pixels(|r, g, b| {
@@ -60,20 +49,20 @@ impl IntensityTransformationCurve {
 }
 
 #[derive(Debug)]
-struct Image<'a> {
+struct Image<'a, const N: usize> {
     pixels: &'a mut [u8],
     size: usize,
 }
 
-impl<'a> Image<'a> {
+impl<'a, const N: usize> Image<'a, N> {
     fn new(pixels: &'a mut [u8]) -> Self {
-        let size = pixels.len() / 3;
+        let size = pixels.len() / N;
         Self { pixels, size }
     }
 
     fn intensities(&self) -> impl '_ + Iterator<Item = u8> {
         self.pixels
-            .chunks_exact(3)
+            .chunks_exact(N)
             .map(|p| std::cmp::max(p[0], std::cmp::max(p[1], p[2])))
     }
 
@@ -85,7 +74,7 @@ impl<'a> Image<'a> {
     where
         F: Fn(u8, u8, u8) -> (u8, u8, u8),
     {
-        for p in self.pixels.chunks_exact_mut(3) {
+        for p in self.pixels.chunks_exact_mut(N) {
             let rgb = f(p[0], p[1], p[2]);
             p[0] = rgb.0;
             p[1] = rgb.1;
@@ -98,7 +87,7 @@ impl<'a> Image<'a> {
 struct Pdf([f32; 256]);
 
 impl Pdf {
-    fn new(image: &Image) -> Self {
+    fn new<const N: usize>(image: &Image<'_, N>) -> Self {
         let mut histogram = [0; 256];
         for intensity in image.intensities() {
             histogram[usize::from(intensity)] += 1;
@@ -201,8 +190,8 @@ fn hsv_to_rgb(mut h: f32, s: f32, v: f32) -> (f32, f32, f32) {
                 g *= 1.0 - s;
                 b *= 1.0 - s * f;
             }
-            // 0 | 6
-            _ => {
+            n => {
+                debug_assert!(n == 1 || n == 6);
                 g *= 1.0 - s * (1.0 - f);
                 b *= 1.0 - s;
             }
