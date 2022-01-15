@@ -11,6 +11,8 @@ A Rust implementation of the AGCWD algorithm.
 
 AGCWD is described in the paper ["Efficient Contrast Enhancement Using Adaptive Gamma Correction With Weighting Distribution"][AGCWD].
 
+[Here](https://sile.github.io/agcwd/examples/enhance.html) is a live demo of enhancing images from your camera in real-time.
+
 [AGCWD]: https://ieeexplore.ieee.org/abstract/document/6336819/
 
 Examples
@@ -29,5 +31,3 @@ You can apply AGCWD to a PNG image by executing the following command:
 ```console
 $ cargo run --example enhance-png /path/to/image.png --output-path 
 ```
-
-Besides, [here](https://sile.github.io/agcwd/examples/enhance.html) is a live example of enhancing images from your camera in real-time.
