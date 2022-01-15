@@ -48,26 +48,20 @@ impl Agcwd {
         let cdf_w = Cdf::new(&pdf_w);
         let curve = IntensityTransformationCurve::new(&cdf_w);
         image.update_pixels(|r, g, b| {
-            let (h, s, v) = rgb_to_hsv(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0);
-            let v = curve.0[(v * 255.0) as usize];
-            let rgb = hsv_to_rgb(h, s, v);
-            (
-                (rgb.0 * 255.0).round() as u8,
-                (rgb.1 * 255.0).round() as u8,
-                (rgb.2 * 255.0).round() as u8,
-            )
+            let (h, s, v) = rgb_to_hsv(r, g, b);
+            hsv_to_rgb(h, s, curve.0[usize::from(v)])
         });
     }
 }
 
 #[derive(Debug)]
-struct IntensityTransformationCurve([f32; 256]);
+struct IntensityTransformationCurve([u8; 256]);
 
 impl IntensityTransformationCurve {
     fn new(cdf: &Cdf) -> Self {
-        let mut curve = [0.0; 256];
+        let mut curve = [0; 256];
         for (i, x) in cdf.0.iter().copied().enumerate() {
-            curve[i] = (i as f32 / 255.0).powf(1.0 - x);
+            curve[i] = (255.0 * (i as f32 / 255.0).powf(1.0 - x)).round() as u8;
         }
         Self(curve)
     }
@@ -161,69 +155,74 @@ impl Cdf {
     }
 }
 
-fn rgb_to_hsv(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
-    let max = r.max(g.max(b));
-    let min = r.min(g.min(b));
-    let mut h = max - min;
-    if h > 0.0 {
-        if max == r {
-            h = (g - b) / h;
-            if h < 0.0 {
-                h += 6.0;
-            }
-        } else if max == g {
-            h = 2.0 + (b - r) / h;
-        } else {
-            h = 4.0 + (r - g) / h;
-        }
-    }
-    h /= 6.0;
-    let mut s = max - min;
-    if max != 0.0 {
-        s /= max;
-    }
+fn rgb_to_hsv(r: u8, g: u8, b: u8) -> (u8, u8, u8) {
+    let r = usize::from(r);
+    let g = usize::from(g);
+    let b = usize::from(b);
+    let max = std::cmp::max(r, std::cmp::max(g, b));
+    let min = std::cmp::min(r, std::cmp::min(g, b));
+    let n = max - min;
+
+    let s = if max == 0 { 0 } else { n * 255 / max };
     let v = max;
-    (h, s, v)
+    let h = if n == 0 {
+        0
+    } else if max == r {
+        if g < b {
+            (6 * 255) + (g * 255 / n) - (b * 255 / n)
+        } else {
+            (g - b) * 255 / n
+        }
+    } else if max == g {
+        2 * 255 + b * 255 / n - r * 255 / n
+    } else {
+        4 * 255 + r * 255 / n - g * 255 / n
+    } / 6;
+
+    (h as u8, s as u8, v as u8)
 }
 
-fn hsv_to_rgb(mut h: f32, s: f32, v: f32) -> (f32, f32, f32) {
-    let mut r = v;
-    let mut g = v;
-    let mut b = v;
+fn hsv_to_rgb(h: u8, s: u8, v: u8) -> (u8, u8, u8) {
+    if s == 0 {
+        return (v, v, v);
+    }
 
-    if s > 0.0 {
-        h *= 6.0;
-        let f = h.fract();
-        match h.floor() as usize {
-            1 => {
-                r *= 1.0 - s * f;
-                b *= 1.0 - s;
-            }
-            2 => {
-                r *= 1.0 - s;
-                b *= 1.0 - s * (1.0 - f);
-            }
-            3 => {
-                r *= 1.0 - s;
-                g *= 1.0 - s * f;
-            }
-            4 => {
-                r *= 1.0 - s * (1.0 - f);
-                g *= 1.0 - s;
-            }
-            5 => {
-                g *= 1.0 - s;
-                b *= 1.0 - s * f;
-            }
-            n => {
-                debug_assert!(n == 1 || n == 6);
-                g *= 1.0 - s * (1.0 - f);
-                b *= 1.0 - s;
-            }
+    let mut r = usize::from(v);
+    let mut g = usize::from(v);
+    let mut b = usize::from(v);
+    let s = usize::from(s);
+    let h6 = usize::from(h) * 6;
+
+    let f = h6 % 255;
+    match h6 / 255 {
+        1 => {
+            r = r * (255 * 255 - s * f) / (255 * 255);
+            b = b * (255 - s) / 255;
+        }
+        2 => {
+            r = r * (255 - s) / 255;
+            b = b * (255 * 255 - s * (255 - f)) / (255 * 255);
+        }
+        3 => {
+            r = r * (255 - s) / 255;
+            g = g * (255 * 255 - s * f) / (255 * 255);
+        }
+        4 => {
+            r = r * (255 * 255 - s * (255 - f)) / (255 * 255);
+            g = g * (255 - s) / 255;
+        }
+        5 => {
+            g = g * (255 - s) / 255;
+            b = b * (255 * 255 - s * f) / (255 * 255);
+        }
+        n => {
+            debug_assert!(n == 1 || n == 6);
+            g = g * (255 * 255 - s * (255 - f)) / (255 * 255);
+            b = b * (255 - s) / 255;
         }
     }
 
-    (r, g, b)
+    (r as u8, g as u8, b as u8)
 }
 
 #[cfg(test)]
