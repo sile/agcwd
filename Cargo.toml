@@ -13,8 +13,6 @@ categories = ["multimedia::images"]
 [badges]
 coveralls = {repository = "sile/agcwd"}
 
-[dependencies]
-
 [dev-dependencies]
 anyhow = "1"
 png = "0.17"

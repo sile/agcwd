@@ -1,0 +1,144 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>AGCWD Example</title>
+  </head>
+  <body>
+    <h1>AGCWD Example</h1>
+
+    This example enhances the contrast of images from your camera by using the AGCWD algorithm.
+    <br />
+    NOTE: This example only supports Chromium-based browsers such as Chrome and Edge.
+
+    <h3>References</h3>
+
+    Paper: <a href="https://ieeexplore.ieee.org/abstract/document/6336819/">Efficient Contrast Enhancement Using Adaptive Gamma Correction With Weighting Distribution</a><br />
+    Rust Implementation: <a href="https://github.com/sile/agcwd">https://github.com/sile/agcwd</a>    <br />
+
+    <h3>Settings</h3>
+    Input Resolution: <select id="videoSize" size="1" onchange="showVideos()">
+                          <option value="320x240">320x240</option>
+                          <option value="640x480" selected>640x480</option>
+                      </select><br />
+    Input FPS: <select id="videoFps" size="1" onchange="showVideos()">
+                  <option value="1">1</option>
+                  <option value="10" selected>10</option>
+                  <option value="30">30</option>
+    </select><br />
+    Camera: <select id="camera" size="1" onchange="showVideos()"></select><br />
+    AGCWD Alpha: <input id="alpha" type="range" min="0" max="5" value="0.1" step="0.1"
+                        oninput="document.getElementById('alpha-value').innerText = document.getElementById('alpha').value">
+                 <span id="alpha-value">0.1</span><br />
+    Shwo AGCWD Latency: <input id="showLatency" type="checkbox" checked><br />
+
+    <h3>Videos: left=original, right=enhanced</h3>
+    <video id="originalVideo" autoplay playsinline></video>
+    <video id="enhancedVideo" autoplay playsinline></video>
+
+    <script>
+      navigator.mediaDevices.enumerateDevices().then((devices) => {
+          const videoDevices = devices.filter(device => device.kind === 'videoinput' && device.label);
+          const options = videoDevices.map(videoDevice => {
+              return `<option value="${videoDevice.deviceId}">${videoDevice.label}</option>`;
+          });
+          document.getElementById('camera').innerHTML = options.join('');
+      });
+    </script>
+
+    <script type="module">
+      import init, {enhance_rgba_image} from "./agcwd-wasm/pkg/agcwd_wasm.js";
+
+      (async () => { await init() })();
+
+      function getUserMedia() {
+          let width;
+          let height;
+          switch (document.getElementById("videoSize").value) {
+          case "320x240":
+              width = 320;
+              height = 240;
+              break;
+          case "640x480":
+              width = 640;
+              height = 480;
+              break;
+          }
+          const constraints = {
+              width,
+              height,
+              frameRate: {ideal: document.getElementById("videoFps").value},
+              deviceId: document.getElementById('camera').value,
+          };
+          return navigator.mediaDevices.getUserMedia({video: constraints});
+      }
+
+      function showOriginalVideo() {
+          const videoElement = document.getElementById('originalVideo');
+          getUserMedia().then((stream) => {
+              videoElement.srcObject = stream;
+          });
+      }
+
+      let abortController = new AbortController();
+      function showEnhancedVideo() {
+          abortController.abort();
+          abortController = new AbortController();
+
+          const videoElement = document.getElementById('enhancedVideo');
+          getUserMedia().then((stream) => {
+              const signal = abortController.signal;
+              const track = stream.getVideoTracks()[0];
+              const canvas = new OffscreenCanvas(track.getSettings().width,
+                                                 track.getSettings().height);
+              const canvasCtx = canvas.getContext("2d", { desynchronized: true });
+
+              const generator = new MediaStreamTrackGenerator({ kind: "video" });
+              const processor = new MediaStreamTrackProcessor({ track });
+              processor.readable
+                  .pipeThrough(
+                      new TransformStream({
+                          transform: async (frame, controller) => {
+                              const alpha = document.getElementById('alpha').value;
+                              const showLatency = document.getElementById('showLatency').checked;
+
+                              const imageBitmap = await createImageBitmap(frame);
+                              frame.close();
+                              canvasCtx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
+                              imageBitmap.close();
+
+                              const imageData = canvasCtx.getImageData(0, 0, canvas.width, canvas.height);
+
+                              const now = performance.now();
+                              enhance_rgba_image(imageData.data, alpha);
+                              const elapsed = performance.now() - now;
+
+                              canvasCtx.putImageData(imageData, 0, 0);
+                              if (showLatency) {
+                                  canvasCtx.fillText(`Latency(ms): ${elapsed.toFixed(3).padStart(7, '0')}`, 20, 20);
+                              }
+
+                              controller.enqueue(new VideoFrame(canvas));
+                          }
+                      },
+                      { signal })
+                  )
+                  .pipeTo(generator.writable)
+                  .catch((e) => {
+                      if (!signal.aborted) {
+                          console.log("Error: ", e);
+                      }
+                  });
+              videoElement.srcObject = new MediaStream([generator]);
+          });
+      }
+
+      function showVideos() {
+          showOriginalVideo();
+          showEnhancedVideo();
+      }
+      window.showVideos = showVideos;
+
+      showVideos();
+    </script>
+  </body>
+</html>
