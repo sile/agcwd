@@ -26,12 +26,20 @@
                   <option value="30">30</option>
     </select><br />
     Camera: <select id="camera" size="1" onchange="showVideos()"></select><br />
+    Camera Zoom: <select id="cameraZoom" size="1" onchange="showVideos()">
+                  <option value="1" selected>1</option>
+                  <option value="2">2</option>
+                  <option value="4">4</option>
+    </select><br />
+
+    <br />
     AGCWD Alpha: <input id="alpha" type="range" min="0" max="5" value="0.1" step="0.1"
                         oninput="document.getElementById('alpha-value').innerText = document.getElementById('alpha').value">
                  <span id="alpha-value">0.1</span><br />
-    Shwo AGCWD Latency: <input id="showLatency" type="checkbox" checked><br />
 
-    <h3>Videos: left=original, right=enhanced</h3>
+    <h3>Videos: first=original, second=enhanced</h3>
+    <span id="latency"></span><br />
+
     <video id="originalVideo" autoplay playsinline></video>
     <video id="enhancedVideo" autoplay playsinline></video>
 
@@ -66,6 +74,7 @@
           const constraints = {
               width,
               height,
+              zoom: document.getElementById('cameraZoom').value,
               frameRate: {ideal: document.getElementById("videoFps").value},
               deviceId: document.getElementById('camera').value,
           };
@@ -94,12 +103,13 @@
 
               const generator = new MediaStreamTrackGenerator({ kind: "video" });
               const processor = new MediaStreamTrackProcessor({ track });
+              let latencySum = 0;
+              let frames = 0;
               processor.readable
                   .pipeThrough(
                       new TransformStream({
                           transform: async (frame, controller) => {
                               const alpha = document.getElementById('alpha').value;
-                              const showLatency = document.getElementById('showLatency').checked;
 
                               const imageBitmap = await createImageBitmap(frame);
                               frame.close();
@@ -113,11 +123,12 @@
                               const elapsed = performance.now() - now;
 
                               canvasCtx.putImageData(imageData, 0, 0);
-                              if (showLatency) {
-                                  canvasCtx.fillText(`Latency(ms): ${elapsed.toFixed(3).padStart(7, '0')}`, 20, 20);
-                              }
-
                               controller.enqueue(new VideoFrame(canvas));
+
+                              latencySum += elapsed;
+                              frames += 1;
+                              document.getElementById('latency').innerText =
+                                  `AGCWD Latency: ${elapsed.toFixed(1).padStart(4, '0')} ms, Average: ${(latencySum / frames).toFixed(1).padStart(4, '0')} ms`;
                           }
                       },
                       { signal })
