@@ -17,8 +17,10 @@
 
     <h3>Settings</h3>
     Input Resolution: <select id="videoSize" size="1" onchange="showVideos()">
-                          <option value="320x240">320x240</option>
-                          <option value="640x480" selected>640x480</option>
+                          <option value="320x240">320x240 (QVGA)</option>
+                          <option value="480x320">480x320 (HVGA)</option>
+                          <option value="640x480" selected>640x480 (VGA)</option>
+                          <option value="800x600">800x600 (SVGA)</option>
                       </select><br />
     Input FPS: <select id="videoFps" size="1" onchange="showVideos()">
                   <option value="1">1</option>
@@ -30,6 +32,7 @@
                   <option value="1" selected>1</option>
                   <option value="2">2</option>
                   <option value="4">4</option>
+                  <option value="8">8</option>
     </select><br />
 
     <br />
@@ -66,14 +69,22 @@
               width = 320;
               height = 240;
               break;
+          case "480x320":
+              width = 480;
+              height = 320;
+              break;
           case "640x480":
               width = 640;
               height = 480;
               break;
+          case "800x600":
+              width = 800;
+              height = 600;
+              break;
           }
           const constraints = {
-              width,
-              height,
+              width: {exact: width},
+              height: {ideal: width},
               zoom: document.getElementById('cameraZoom').value,
               frameRate: {ideal: document.getElementById("videoFps").value},
               deviceId: document.getElementById('camera').value,
