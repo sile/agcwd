@@ -43,6 +43,11 @@ impl Agcwd {
         self.enhance_image(RgbImage::<4>::new(pixels));
     }
 
+    /// Enhances the contrast of an I420 image.
+    pub fn enhance_i420_image(&self, pixels: &mut [u8], width: usize) {
+        self.enhance_image(I420Image::new(pixels, width));
+    }
+
     fn enhance_image(&self, mut image: impl Image) {
         let pdf = Pdf::new(&image);
         let pdf_w = pdf.to_weighting_distribution(self.alpha);
@@ -108,6 +113,61 @@ impl<'a, const N: usize> Image for RgbImage<'a, N> {
             p[0] = r;
             p[1] = g;
             p[2] = b;
+        }
+    }
+}
+
+#[derive(Debug)]
+struct I420Image<'a> {
+    pixels: &'a mut [u8],
+    width: usize,
+}
+
+impl<'a> I420Image<'a> {
+    fn new(pixels: &'a mut [u8], width: usize) -> Self {
+        Self { pixels, width }
+    }
+
+    fn intensities(&self) -> impl '_ + Iterator<Item = u8> {
+        let n = self.len();
+        (0..n).map(move |i| {
+            let uv_i = (i / self.width) / 2 * self.width / 2 + (i % self.width) / 2;
+            let yi = i;
+            let ui = n + uv_i;
+            let vi = n + n / 4 + uv_i;
+            color_format::yuv_to_hsv(self.pixels[yi], self.pixels[ui], self.pixels[vi]).2
+        })
+    }
+}
+
+impl<'a> Image for I420Image<'a> {
+    fn len(&self) -> usize {
+        self.pixels.len() * 2 / 3
+    }
+
+    fn intensity_histogram(&self) -> [usize; 256] {
+        let mut histogram = [0; 256];
+        for intensity in self.intensities() {
+            histogram[usize::from(intensity)] += 1;
+        }
+        histogram
+    }
+
+    fn update_intensities(&mut self, curve: &IntensityTransformationCurve) {
+        let n = self.len();
+        for i in 0..n {
+            let uv_i = (i / self.width) / 2 * self.width / 2 + (i % self.width) / 2;
+            let yi = i;
+            let ui = n + uv_i;
+            let vi = n + n / 4 + uv_i;
+
+            let (h, s, v) =
+                color_format::yuv_to_hsv(self.pixels[yi], self.pixels[ui], self.pixels[vi]);
+            let (y, u, v) = color_format::hsv_to_yuv(h, s, curve.0[usize::from(v)]);
+
+            self.pixels[yi] = y;
+            self.pixels[ui] = u;
+            self.pixels[vi] = v;
         }
     }
 }

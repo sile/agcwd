@@ -32,6 +32,22 @@ export function enhance_rgba_image(pixels, agcwd_alpha) {
     }
 }
 
+/**
+* @param {Uint8Array} pixels
+* @param {number} width
+* @param {number} agcwd_alpha
+*/
+export function enhance_i420_image(pixels, width, agcwd_alpha) {
+    try {
+        var ptr0 = passArray8ToWasm0(pixels, wasm.__wbindgen_malloc);
+        var len0 = WASM_VECTOR_LEN;
+        wasm.enhance_i420_image(ptr0, len0, width, agcwd_alpha);
+    } finally {
+        pixels.set(getUint8Memory0().subarray(ptr0 / 1, ptr0 / 1 + len0));
+        wasm.__wbindgen_free(ptr0, len0 * 1);
+    }
+}
+
 async function load(module, imports) {
     if (typeof Response === 'function' && module instanceof Response) {
         if (typeof WebAssembly.instantiateStreaming === 'function') {
