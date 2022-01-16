@@ -59,11 +59,38 @@ pub fn hsv_to_rgb(h: u8, s: u8, v: u8) -> (u8, u8, u8) {
             b = b * (255 * 255 - s * f) / (255 * 255);
         }
         n => {
-            debug_assert!(n == 1 || n == 6);
+            debug_assert!(n == 0 || n == 6, "n: {}", n);
             g = g * (255 * 255 - s * (255 - f)) / (255 * 255);
             b = b * (255 - s) / 255;
         }
     }
 
     (r as u8, g as u8, b as u8)
+}
+
+pub fn i420_to_hsv(y: u8, u: u8, v: u8) -> (u8, u8, u8) {
+    todo!()
+}
+
+//pub fn i420_to_rgb(
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rgb_to_hsv_works() {
+        let inputs = [(255, 0, 0), (10, 30, 200), (222, 222, 222)];
+        for i in inputs {
+            let (h, s, v) = rgb_to_hsv(i.0, i.1, i.2);
+            let (r, g, b) = hsv_to_rgb(h, s, v);
+
+            dbg!(i);
+            dbg!((r, g, b));
+
+            assert!(isize::from(r) - isize::from(i.0) <= 2);
+            assert!(isize::from(g) - isize::from(i.1) <= 2);
+            assert!(isize::from(b) - isize::from(i.2) <= 2);
+        }
+    }
 }
