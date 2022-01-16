@@ -35,24 +35,20 @@ impl Agcwd {
 
     /// Enhances the contrast of an RGB image.
     pub fn enhance_rgb_image(&self, pixels: &mut [u8]) {
-        self.enhance_image::<3>(pixels);
+        self.enhance_image(RgbImage::<3>::new(pixels));
     }
 
     /// Enhances the contrast of an RGBA image.
     pub fn enhance_rgba_image(&self, pixels: &mut [u8]) {
-        self.enhance_image::<4>(pixels);
+        self.enhance_image(RgbImage::<4>::new(pixels));
     }
 
-    fn enhance_image<const N: usize>(&self, pixels: &mut [u8]) {
-        let mut image = Image::<N>::new(pixels);
+    fn enhance_image(&self, mut image: impl Image) {
         let pdf = Pdf::new(&image);
         let pdf_w = pdf.to_weighting_distribution(self.alpha);
         let cdf_w = Cdf::new(&pdf_w);
         let curve = IntensityTransformationCurve::new(&cdf_w);
-        image.update_pixels(|r, g, b| {
-            let (h, s, v) = self::color_format::rgb_to_hsv(r, g, b);
-            self::color_format::hsv_to_rgb(h, s, curve.0[usize::from(v)])
-        });
+        image.update_intensities(&curve);
     }
 }
 
@@ -69,16 +65,20 @@ impl IntensityTransformationCurve {
     }
 }
 
-#[derive(Debug)]
-struct Image<'a, const N: usize> {
-    pixels: &'a mut [u8],
-    size: usize,
+trait Image {
+    fn len(&self) -> usize;
+    fn intensity_histogram(&self) -> [usize; 256];
+    fn update_intensities(&mut self, curve: &IntensityTransformationCurve);
 }
 
-impl<'a, const N: usize> Image<'a, N> {
+#[derive(Debug)]
+struct RgbImage<'a, const N: usize> {
+    pixels: &'a mut [u8],
+}
+
+impl<'a, const N: usize> RgbImage<'a, N> {
     fn new(pixels: &'a mut [u8]) -> Self {
-        let size = pixels.len() / N;
-        Self { pixels, size }
+        Self { pixels }
     }
 
     fn intensities(&self) -> impl '_ + Iterator<Item = u8> {
@@ -86,20 +86,28 @@ impl<'a, const N: usize> Image<'a, N> {
             .chunks_exact(N)
             .map(|p| std::cmp::max(p[0], std::cmp::max(p[1], p[2])))
     }
+}
 
+impl<'a, const N: usize> Image for RgbImage<'a, N> {
     fn len(&self) -> usize {
-        self.size
+        self.pixels.len() / N
     }
 
-    fn update_pixels<F>(&mut self, f: F)
-    where
-        F: Fn(u8, u8, u8) -> (u8, u8, u8),
-    {
+    fn intensity_histogram(&self) -> [usize; 256] {
+        let mut histogram = [0; 256];
+        for intensity in self.intensities() {
+            histogram[usize::from(intensity)] += 1;
+        }
+        histogram
+    }
+
+    fn update_intensities(&mut self, curve: &IntensityTransformationCurve) {
         for p in self.pixels.chunks_exact_mut(N) {
-            let rgb = f(p[0], p[1], p[2]);
-            p[0] = rgb.0;
-            p[1] = rgb.1;
-            p[2] = rgb.2;
+            let (h, s, v) = self::color_format::rgb_to_hsv(p[0], p[1], p[2]);
+            let (r, g, b) = self::color_format::hsv_to_rgb(h, s, curve.0[usize::from(v)]);
+            p[0] = r;
+            p[1] = g;
+            p[2] = b;
         }
     }
 }
@@ -108,12 +116,8 @@ impl<'a, const N: usize> Image<'a, N> {
 struct Pdf([f32; 256]);
 
 impl Pdf {
-    fn new<const N: usize>(image: &Image<'_, N>) -> Self {
-        let mut histogram = [0; 256];
-        for intensity in image.intensities() {
-            histogram[usize::from(intensity)] += 1;
-        }
-
+    fn new(image: &impl Image) -> Self {
+        let histogram = image.intensity_histogram();
         let mut pdf = [0.0; 256];
         let n = image.len() as f32;
         for (i, c) in histogram.into_iter().enumerate() {
