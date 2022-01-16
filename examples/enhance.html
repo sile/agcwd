@@ -97,19 +97,8 @@
           return navigator.mediaDevices.getUserMedia({video: constraints});
       }
 
-      function showOriginalVideo(videoElement) {
+      function enhanceVideo(videoElement, do_enhance) {
           getUserMedia().then((stream) => {
-              videoElement.srcObject = stream;
-          });
-      }
-
-      let abortController = new AbortController();
-      function showEnhancedVideo(videoElement) {
-          abortController.abort();
-          abortController = new AbortController();
-
-          getUserMedia().then((stream) => {
-              const signal = abortController.signal;
               const track = stream.getVideoTracks()[0];
               const canvas = new OffscreenCanvas(track.getSettings().width,
                                                  track.getSettings().height);
@@ -133,39 +122,31 @@
                   .pipeThrough(
                       new TransformStream({
                           transform: async (frame, controller) => {
-                              if (interleave && (performance.now() - start) % (interleave * 2) > interleave) {
-                                  return controller.enqueue(frame);
-                              }
-
-                              const alpha = document.getElementById('alpha').value;
-
-                              const imageBitmap = await createImageBitmap(frame);
+                              canvasCtx.drawImage(frame, 0, 0, canvas.width, canvas.height);
                               frame.close();
-                              canvasCtx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
-                              imageBitmap.close();
 
                               const imageData = canvasCtx.getImageData(0, 0, canvas.width, canvas.height);
 
-                              const now = performance.now();
-                              enhance_rgba_image(imageData.data, alpha);
-                              const elapsed = performance.now() - now;
+                              if (do_enhance || (interleave && (performance.now() - start) % (interleave * 2) > interleave)) {
+                                  const alpha = document.getElementById('alpha').value;
+                                  const now = performance.now();
+                                  enhance_rgba_image(imageData.data, alpha);
+                                  const elapsed = performance.now() - now;
+
+                                  latencySum += elapsed;
+                                  frames += 1;
+                                  document.getElementById('latency').innerText =
+                                      `AGCWD Latency: ${elapsed.toFixed(1).padStart(4, '0')} ms, Average: ${(latencySum / frames).toFixed(1).padStart(4, '0')} ms`;
+                              }
 
                               canvasCtx.putImageData(imageData, 0, 0);
                               controller.enqueue(new VideoFrame(canvas));
-
-                              latencySum += elapsed;
-                              frames += 1;
-                              document.getElementById('latency').innerText =
-                                  `AGCWD Latency: ${elapsed.toFixed(1).padStart(4, '0')} ms, Average: ${(latencySum / frames).toFixed(1).padStart(4, '0')} ms`;
                           }
-                      },
-                      { signal })
+                      })
                   )
                   .pipeTo(generator.writable)
                   .catch((e) => {
-                      if (!signal.aborted) {
-                          console.log("Error: ", e);
-                      }
+                      console.log("Error: ", e);
                   });
               videoElement.srcObject = new MediaStream([generator]);
           });
@@ -176,10 +157,10 @@
           const videoElement1 = document.getElementById('video1');
 
           if (document.getElementById('outputMode').value === 'twoVideos') {
-              showOriginalVideo(videoElement0);
-              showEnhancedVideo(videoElement1);
+              enhanceVideo(videoElement0, false);
+              enhanceVideo(videoElement1, true);
           } else {
-              showEnhancedVideo(videoElement0);
+              enhanceVideo(videoElement0, false);
               if (videoElement1.srcObject) {
                   videoElement1.srcObject.getVideoTracks().forEach(track => {
                       track.stop()
