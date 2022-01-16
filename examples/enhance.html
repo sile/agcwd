@@ -13,7 +13,7 @@
     <h3>References</h3>
 
     Paper: <a href="https://ieeexplore.ieee.org/abstract/document/6336819/">Efficient Contrast Enhancement Using Adaptive Gamma Correction With Weighting Distribution</a><br />
-    Rust Implementation: <a href="https://github.com/sile/agcwd">https://github.com/sile/agcwd</a>    <br />
+    Rust Implementation: <a href="https://github.com/sile/agcwd">https://github.com/sile/agcwd</a><br />
 
     <h3>Settings</h3>
     Input Resolution: <select id="videoSize" size="1" onchange="showVideos()">
@@ -34,17 +34,22 @@
                   <option value="4">4</option>
                   <option value="8">8</option>
     </select><br />
+    Output Mode: <select id="outputMode" size="1" onchange="showVideos()">
+                  <option value="twoVideos" selected>Two Videos (first:original, second:enhanced)</option>
+                  <option value="interleave1s">Interleave (1s)</option>
+                  <option value="interleave5s">Interleave (5s)</option>
+    </select><br />
 
     <br />
-    AGCWD Alpha: <input id="alpha" type="range" min="0" max="5" value="0.1" step="0.1"
+    AGCWD Alpha: <input id="alpha" type="range" min="0" max="4" value="0.1" step="0.1"
                         oninput="document.getElementById('alpha-value').innerText = document.getElementById('alpha').value">
                  <span id="alpha-value">0.1</span><br />
 
-    <h3>Videos: first=original, second=enhanced</h3>
+    <h3>Output</h3>
     <span id="latency"></span><br />
 
-    <video id="originalVideo" autoplay playsinline></video>
-    <video id="enhancedVideo" autoplay playsinline></video>
+    <video id="video0" autoplay playsinline></video>
+    <video id="video1" autoplay playsinline></video>
 
     <script>
       navigator.mediaDevices.enumerateDevices().then((devices) => {
@@ -92,19 +97,17 @@
           return navigator.mediaDevices.getUserMedia({video: constraints});
       }
 
-      function showOriginalVideo() {
-          const videoElement = document.getElementById('originalVideo');
+      function showOriginalVideo(videoElement) {
           getUserMedia().then((stream) => {
               videoElement.srcObject = stream;
           });
       }
 
       let abortController = new AbortController();
-      function showEnhancedVideo() {
+      function showEnhancedVideo(videoElement) {
           abortController.abort();
           abortController = new AbortController();
 
-          const videoElement = document.getElementById('enhancedVideo');
           getUserMedia().then((stream) => {
               const signal = abortController.signal;
               const track = stream.getVideoTracks()[0];
@@ -116,10 +119,24 @@
               const processor = new MediaStreamTrackProcessor({ track });
               let latencySum = 0;
               let frames = 0;
+              let interleave;
+              let start = performance.now();
+              switch (document.getElementById('outputMode').value) {
+              case 'interleave1s':
+                  interleave = 1000;
+                  break;
+              case 'interleave5s':
+                  interleave = 5000;
+                  break;
+              }
               processor.readable
                   .pipeThrough(
                       new TransformStream({
                           transform: async (frame, controller) => {
+                              if (interleave && (performance.now() - start) % (interleave * 2) > interleave) {
+                                  return controller.enqueue(frame);
+                              }
+
                               const alpha = document.getElementById('alpha').value;
 
                               const imageBitmap = await createImageBitmap(frame);
@@ -155,8 +172,21 @@
       }
 
       function showVideos() {
-          showOriginalVideo();
-          showEnhancedVideo();
+          const videoElement0 = document.getElementById('video0');
+          const videoElement1 = document.getElementById('video1');
+
+          if (document.getElementById('outputMode').value === 'twoVideos') {
+              showOriginalVideo(videoElement0);
+              showEnhancedVideo(videoElement1);
+          } else {
+              showEnhancedVideo(videoElement0);
+              if (videoElement1.srcObject) {
+                  videoElement1.srcObject.getVideoTracks().forEach(track => {
+                      track.stop()
+                      videoElement.srcObject.removeTrack(track);
+                  });
+              }
+          }
       }
       window.showVideos = showVideos;
 
