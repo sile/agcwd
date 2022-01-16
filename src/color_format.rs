@@ -1,3 +1,5 @@
+use std::cmp::{max, min};
+
 pub fn rgb_to_hsv(r: u8, g: u8, b: u8) -> (u8, u8, u8) {
     let r = usize::from(r);
     let g = usize::from(g);
@@ -68,11 +70,45 @@ pub fn hsv_to_rgb(h: u8, s: u8, v: u8) -> (u8, u8, u8) {
     (r as u8, g as u8, b as u8)
 }
 
-pub fn i420_to_hsv(y: u8, u: u8, v: u8) -> (u8, u8, u8) {
-    todo!()
+pub fn yuv_to_hsv(y: u8, u: u8, v: u8) -> (u8, u8, u8) {
+    let (r, g, b) = yuv_to_rgb(y, u, v);
+    rgb_to_hsv(r, g, b)
 }
 
-//pub fn i420_to_rgb(
+pub fn hsv_to_yuv(h: u8, s: u8, v: u8) -> (u8, u8, u8) {
+    let (r, g, b) = hsv_to_rgb(h, s, v);
+    rgb_to_yuv(r, g, b)
+}
+
+// See: https://en.wikipedia.org/wiki/YUV
+pub fn yuv_to_rgb(y: u8, u: u8, v: u8) -> (u8, u8, u8) {
+    let c = i32::from(y) - 16;
+    let d = i32::from(u) - 128;
+    let e = i32::from(v) - 128;
+
+    let r = (298 * c + 409 * e + 128) >> 8;
+    let g = (298 * c - 100 * d - 208 * e + 128) >> 8;
+    let b = (298 * c + 516 * d + 128) >> 8;
+
+    fn to_u8(x: i32) -> u8 {
+        min(max(x, 0), 255) as u8
+    }
+
+    (to_u8(r), to_u8(g), to_u8(b))
+}
+
+// See: https://en.wikipedia.org/wiki/YUV
+pub fn rgb_to_yuv(r: u8, g: u8, b: u8) -> (u8, u8, u8) {
+    let r = i32::from(r);
+    let g = i32::from(g);
+    let b = i32::from(b);
+
+    let y = ((66 * r + 129 * g + 25 * b + 128) >> 8) + 16;
+    let u = ((-38 * r - 74 * g + 112 * b + 128) >> 8) + 128;
+    let v = ((112 * r - 94 * g - 18 * b) >> 8) + 128;
+
+    (y as u8, u as u8, v as u8)
+}
 
 #[cfg(test)]
 mod tests {
@@ -88,9 +124,41 @@ mod tests {
             dbg!(i);
             dbg!((r, g, b));
 
-            assert!(isize::from(r) - isize::from(i.0) <= 2);
-            assert!(isize::from(g) - isize::from(i.1) <= 2);
-            assert!(isize::from(b) - isize::from(i.2) <= 2);
+            assert!((i32::from(r) - i32::from(i.0)).abs() <= 2);
+            assert!((i32::from(g) - i32::from(i.1)).abs() <= 2);
+            assert!((i32::from(b) - i32::from(i.2)).abs() <= 2);
+        }
+    }
+
+    #[test]
+    fn rgb_to_yuv_works() {
+        let inputs = [(255, 0, 0), (10, 30, 200), (222, 222, 222), (0, 133, 0)];
+        for i in inputs {
+            let (y, u, v) = rgb_to_yuv(i.0, i.1, i.2);
+            let (r, g, b) = yuv_to_rgb(y, u, v);
+
+            dbg!(i);
+            dbg!((r, g, b));
+
+            assert!((i32::from(r) - i32::from(i.0)).abs() <= 2);
+            assert!((i32::from(g) - i32::from(i.1)).abs() <= 2);
+            assert!((i32::from(b) - i32::from(i.2)).abs() <= 2);
+        }
+    }
+
+    #[test]
+    fn yuv_to_hsv_works() {
+        let inputs = [(83, 89, 79), (188, 128, 128), (124, 90, 55)];
+        for i in inputs {
+            let (h, s, v) = yuv_to_hsv(i.0, i.1, i.2);
+            let (y, u, v) = hsv_to_yuv(h, s, v);
+
+            dbg!(i);
+            dbg!((y, u, v));
+
+            assert!((i32::from(y) - i32::from(i.0)).abs() <= 2);
+            assert!((i32::from(u) - i32::from(i.1)).abs() <= 2);
+            assert!((i32::from(v) - i32::from(i.2)).abs() <= 2);
         }
     }
 }
