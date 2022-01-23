@@ -76,7 +76,7 @@ impl Agcwd {
         let pdf = Pdf::new(&image);
         let pdf_w = pdf.to_weighting_distribution(self.options.alpha);
         let cdf_w = Cdf::new(&pdf_w);
-        let curve = IntensityTransformationCurve::new(&cdf_w);
+        let curve = IntensityTransformationCurve::new(&cdf_w, self.options.fusion);
         image.update_pixels(|r, g, b| {
             let (h, s, v) = color_format::rgb_to_hsv(r, g, b);
             color_format::hsv_to_rgb(h, s, curve.0[usize::from(v)])
@@ -88,10 +88,12 @@ impl Agcwd {
 struct IntensityTransformationCurve([u8; 256]);
 
 impl IntensityTransformationCurve {
-    fn new(cdf: &Cdf) -> Self {
+    fn new(cdf: &Cdf, fusion: bool) -> Self {
         let mut curve = [0; 256];
         for (i, x) in cdf.0.iter().copied().enumerate() {
-            curve[i] = (255.0 * (i as f32 / 255.0).powf(1.0 - x)).round() as u8;
+            let v0 = i as f32;
+            let v1 = 255.0 * (v0 / 255.0).powf(1.0 - x);
+            curve[i] = if fusion { v0 * x + v1 * (1.0 - x) } else { v1 }.round() as u8;
         }
         Self(curve)
     }
