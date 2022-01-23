@@ -10,7 +10,7 @@
 //! // An example image containing 2 RGB pixels.
 //! let mut pixels = vec![0, 1, 2, 3, 4, 5];
 //!
-//! let agcwd = agcwd::Agcwd::new(0.5);
+//! let agcwd = agcwd::Agcwd::new();
 //! agcwd.enhance_rgb_image(&mut pixels);
 //! ```
 #![warn(missing_docs)]
@@ -194,14 +194,14 @@ mod tests {
     #[test]
     fn enhance_rgb_image_works() {
         let mut pixels = [1, 2, 3, 4, 5, 6];
-        let agcwd = Agcwd::new(0.5);
+        let agcwd = Agcwd::new();
         agcwd.enhance_rgb_image(&mut pixels);
     }
 
     #[test]
     fn enhance_rgba_image_works() {
         let mut pixels = [1, 2, 3, 4, 5, 6, 7, 8];
-        let agcwd = Agcwd::new(0.5);
+        let agcwd = Agcwd::new();
         agcwd.enhance_rgba_image(&mut pixels);
     }
 }
