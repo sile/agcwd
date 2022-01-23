@@ -17,20 +17,48 @@
 
 mod color_format;
 
+/// [`Agcwd`] options.
+#[derive(Debug, Clone)]
+pub struct AgcwdOptions {
+    /// An algorithm parameter to adjust the shape of weighting distribution (WD).
+    ///
+    /// Defaults to `0.5`.
+    pub alpha: f32,
+
+    /// If `true`, the original image and the enhanced image by AGCWD are fused to generate the final image.
+    ///
+    /// Note that this is a this crate specific option (not defined by the AGCWD paper).
+    ///
+    /// Defaults to `false`.
+    pub fusion: bool,
+}
+
+impl Default for AgcwdOptions {
+    fn default() -> Self {
+        Self {
+            alpha: 0.5,
+            fusion: false,
+        }
+    }
+}
+
 /// [`Agcwd`] provides methods to enhance image contrast based on the [AGCWD] algorithm.
 ///
 /// [AGCWD]: https://ieeexplore.ieee.org/abstract/document/6336819/
 #[derive(Debug)]
 pub struct Agcwd {
-    alpha: f32,
+    options: AgcwdOptions,
 }
 
 impl Agcwd {
-    /// Makes a new [`Agcwd`] instance.
-    ///
-    /// `alpha` is an algorithm parameter to adjust the shape of weighting distribution (WD).
-    pub fn new(alpha: f32) -> Self {
-        Self { alpha }
+    /// Makes a new [`Agcwd`] instance with the default options.
+    pub fn new() -> Self {
+        Self::with_options(Default::default())
+    }
+
+    /// Makes a new [`Agcwd`] instance with the given options.
+    pub fn with_options(options: AgcwdOptions) -> Self {
+        Self { options }
     }
 
     /// Enhances the contrast of an RGB image.
@@ -46,7 +74,7 @@ impl Agcwd {
     fn enhance_image<const N: usize>(&self, pixels: &mut [u8]) {
         let mut image = Image::<N>::new(pixels);
         let pdf = Pdf::new(&image);
-        let pdf_w = pdf.to_weighting_distribution(self.alpha);
+        let pdf_w = pdf.to_weighting_distribution(self.options.alpha);
         let cdf_w = Cdf::new(&pdf_w);
         let curve = IntensityTransformationCurve::new(&cdf_w);
         image.update_pixels(|r, g, b| {
