@@ -6,7 +6,7 @@ struct Options {
     alpha: f32,
 
     #[serde(default)]
-    fusion: bool,
+    fusion: f32,
 }
 
 #[wasm_bindgen]

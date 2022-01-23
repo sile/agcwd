@@ -25,19 +25,19 @@ pub struct AgcwdOptions {
     /// Defaults to `0.5`.
     pub alpha: f32,
 
-    /// If `true`, the original image and the enhanced image by AGCWD are fused to generate the final image.
+    /// Fusion rate of the original image and the enhanced image by AGCWD.
     ///
-    /// Note that this is a this crate specific option (not defined by the AGCWD paper).
+    /// Note that this is a this crate specific parameter (not defined by the AGCWD paper).
     ///
-    /// Defaults to `false`.
-    pub fusion: bool,
+    /// Defaults to `0.0` (i.e., fusion is disabled).
+    pub fusion: f32,
 }
 
 impl Default for AgcwdOptions {
     fn default() -> Self {
         Self {
             alpha: 0.5,
-            fusion: false,
+            fusion: 0.0,
         }
     }
 }
@@ -88,12 +88,12 @@ impl Agcwd {
 struct IntensityTransformationCurve([u8; 256]);
 
 impl IntensityTransformationCurve {
-    fn new(cdf: &Cdf, fusion: bool) -> Self {
+    fn new(cdf: &Cdf, fusion: f32) -> Self {
         let mut curve = [0; 256];
         for (i, x) in cdf.0.iter().copied().enumerate() {
             let v0 = i as f32;
             let v1 = 255.0 * (v0 / 255.0).powf(1.0 - x);
-            curve[i] = if fusion { v0 * x + v1 * (1.0 - x) } else { v1 }.round() as u8;
+            curve[i] = (v0 * x * fusion + v1 * (1.0 - x * fusion)).round() as u8;
         }
         Self(curve)
     }
