@@ -10,6 +10,9 @@ struct Opt {
 
     #[structopt(long, default_value = "0.5")]
     alpha: f32,
+
+    #[structopt(long)]
+    fusion: bool,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -26,7 +29,11 @@ fn main() -> anyhow::Result<()> {
     println!("Image color type: {:?}", info.color_type);
     assert_eq!(info.bit_depth, png::BitDepth::Eight);
 
-    let agcwd = agcwd::Agcwd::new(opt.alpha);
+    let options = agcwd::AgcwdOptions {
+        alpha: opt.alpha,
+        fusion: opt.fusion,
+    };
+    let agcwd = agcwd::Agcwd::with_options(options);
     let start = std::time::Instant::now();
     match reader.info().color_type {
         png::ColorType::Rgb => {

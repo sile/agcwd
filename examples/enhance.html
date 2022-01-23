@@ -41,9 +41,10 @@
     </select><br />
 
     <br />
-    AGCWD Alpha: <input id="alpha" type="range" min="0" max="3" value="0.0" step="0.1"
+    AGCWD Alpha: <input id="alpha" type="range" min="0" max="3" value="0.0" step="0.5"
                         oninput="document.getElementById('alpha-value').innerText = document.getElementById('alpha').value">
-                 <span id="alpha-value">0.0</span><br />
+                 <span id="alpha-value">0.5</span><br />
+    Enable Fusion: <input id="fusion" type="checkbox" checked><br />
 
     <h3>Output</h3>
     <span id="latency"></span><br />
@@ -128,9 +129,14 @@
                               const imageData = canvasCtx.getImageData(0, 0, canvas.width, canvas.height);
 
                               if (do_enhance || (interleave && (performance.now() - start) % (interleave * 2) > interleave)) {
-                                  const alpha = document.getElementById('alpha').value;
+                                  const alpha = Number(document.getElementById('alpha').value);
+                                  const fusion = document.getElementById('fusion').checked;
                                   const now = performance.now();
-                                  enhance_rgba_image(imageData.data, alpha);
+                                  const options = {
+                                      alpha,
+                                      fusion
+                                  };
+                                  enhance_rgba_image(imageData.data, options);
                                   const elapsed = performance.now() - now;
 
                                   latencySum += elapsed;
