@@ -11,8 +11,8 @@ struct Opt {
     #[structopt(long, default_value = "0.5")]
     alpha: f32,
 
-    #[structopt(long)]
-    fusion: bool,
+    #[structopt(long, default_value = "0.0")]
+    fusion: f32,
 }
 
 fn main() -> anyhow::Result<()> {
