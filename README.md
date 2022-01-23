@@ -23,7 +23,7 @@ A Rust code snippet to enhance an RGB image:
 // An example image containing 2 RGB pixels.
 let mut pixels = vec![0, 1, 2, 3, 4, 5];
 
-let agcwd = agcwd::Agcwd::new(0.5);
+let agcwd = agcwd::Agcwd::new();
 agcwd.enhance_rgb_image(&mut pixels);
 ```
 
