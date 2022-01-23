@@ -29,5 +29,5 @@ agcwd.enhance_rgb_image(&mut pixels);
 
 You can apply AGCWD to a PNG image by executing the following command:
 ```console
-$ cargo run --example enhance-png /path/to/image.png --output-path 
+$ cargo run --example enhance-png /path/to/image.png
 ```
