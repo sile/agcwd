@@ -45,7 +45,7 @@ impl Default for AgcwdOptions {
 /// [`Agcwd`] provides methods to enhance image contrast based on the [AGCWD] algorithm.
 ///
 /// [AGCWD]: https://ieeexplore.ieee.org/abstract/document/6336819/
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Agcwd {
     options: AgcwdOptions,
 }
