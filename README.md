@@ -5,7 +5,7 @@ agcwd
 [![Documentation](https://docs.rs/agcwd/badge.svg)](https://docs.rs/agcwd)
 [![Actions Status](https://github.com/sile/agcwd/workflows/CI/badge.svg)](https://github.com/sile/agcwd/actions)
 [![Coverage Status](https://coveralls.io/repos/github/sile/agcwd/badge.svg?branch=main)](https://coveralls.io/github/sile/agcwd?branch=main)
-![License](https://img.shields.io/crates/l/efmt)
+![License](https://img.shields.io/crates/l/agcwd)
 
 A Rust implementation of the AGCWD algorithm.
 
