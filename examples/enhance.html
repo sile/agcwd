@@ -125,6 +125,8 @@
                   .pipeThrough(
                       new TransformStream({
                           transform: async (frame, controller) => {
+                              const timestamp = frame.timestamp;
+                              const duration = frame.duration;
                               canvasCtx.drawImage(frame, 0, 0, canvas.width, canvas.height);
                               frame.close();
 
@@ -148,7 +150,7 @@
                               }
 
                               canvasCtx.putImageData(imageData, 0, 0);
-                              controller.enqueue(new VideoFrame(canvas));
+                              controller.enqueue(new VideoFrame(canvas, { timestamp, duration }));
                           }
                       })
                   )
