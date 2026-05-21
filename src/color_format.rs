@@ -6,7 +6,7 @@ pub fn rgb_to_hsv(r: u8, g: u8, b: u8) -> (u8, u8, u8) {
     let min = std::cmp::min(r, std::cmp::min(g, b));
     let n = max - min;
 
-    let s = if max == 0 { 0 } else { n * 255 / max };
+    let s = (n * 255).checked_div(max).unwrap_or(0);
     let v = max;
     let h = if n == 0 {
         0
